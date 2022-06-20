@@ -1,3 +1,13 @@
+const express = require("express");
+const { ApolloServer, gql } = require("apollo-server-express");
+require("dotenv").config();
+
+const db = require("./db");
+const models = require("./models");
+
+const port = process.env.PORT || 4000;
+DB_HOST = process.env.DB_HOST;
+
 async function main() {
   let notes = [
     {
@@ -18,11 +28,6 @@ async function main() {
     },
   ];
 
-  const express = require("express");
-  const { ApolloServer, gql } = require("apollo-server-express");
-
-  const port = process.env.PORT || 4000;
-
   const typeDefs = gql`
     type Note {
       id: ID!
@@ -37,32 +42,39 @@ async function main() {
     }
 
     type Mutation {
-      newNote(content: String!): Note
+      newNote(content: String!): Note!
+      newNoteAndAuthor(content: String!, author: String!): Note!
     }
   `;
 
   const resolvers = {
     Query: {
       hello: () => "Hello graphQL, I just tested my first graph",
-      notes: () => notes,
-      note: (parent, args) => {
-        return notes.find((note) => note.id === args.id);
+      notes: async () => {
+        return await models.Note.find();
+      },
+      note: async (parent, args) => {
+        return await models.Note.findById(args.id);
       },
     },
     Mutation: {
-      newNote: (parent, args) => {
-        let noteValue = {
-          id: String(notes.length + 1),
+      newNote: async (parent, args) => {
+        return await models.Note.create({
           content: args.content,
           author: "My Super Hero",
-        };
-        notes.push(noteValue);
-        return noteValue;
+        });
+      },
+      newNoteAndAuthor: async (parent, args) => {
+        return await models.Note.create({
+          content: args.content,
+          author: args.author,
+        });
       },
     },
   };
-
   const app = express();
+
+  db.connect(DB_HOST);
 
   const server = new ApolloServer({
     typeDefs,
