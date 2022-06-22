@@ -1,6 +1,7 @@
 // Importing dependencies
 const express = require("express");
 const { ApolloServer } = require("apollo-server-express");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 // Importing modules
@@ -17,14 +18,37 @@ async function main() {
 
   db.connect(DB_HOST);
 
+  const getUser = (token) => {
+    if (token) {
+      try {
+        // Return the user information from the token
+        return jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        // If there is an error throw new error
+        throw new Error("Session invalid!");
+      }
+    }
+  };
+
   const server = new ApolloServer({
     typeDefs,
     resolvers,
     csrfPrevention: true,
     cache: "bounded",
-    context: () => {
-      // Adding database models to context
-      return { models };
+    context: ({ req }) => {
+      // Aquire the user;s token from the header
+      const token = req.headers.authorization;
+
+      // Try retreiving a user with the token
+      const user = getUser(token);
+
+      // Log user to console
+      console.log(user);
+      // Add database models and userto context
+      return {
+        models,
+        user,
+      };
     },
   });
   await server.start();
